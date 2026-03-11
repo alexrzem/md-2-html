@@ -1,5 +1,58 @@
 <template>
-  <div class="flex h-screen flex-col overflow-hidden bg-gray-950 text-gray-100">
+  <div
+    class="flex h-screen flex-col overflow-hidden bg-gray-950 text-gray-100"
+    @dragenter.prevent="onDragEnter"
+    @dragover.prevent="onDragOver"
+    @dragleave.prevent="onDragLeave"
+    @drop.prevent="onDrop"
+  >
+    <!-- ── Drop overlay ──────────────────────────────────────────────────────── -->
+    <Transition name="drop-fade">
+      <div
+        v-if="isDragging"
+        class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
+        :class="overlayBg"
+      >
+        <!-- Dashed border card -->
+        <div
+          class="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed px-16 py-12 text-center shadow-2xl transition-all"
+          :class="overlayCard"
+        >
+          <component :is="overlayIcon" class="size-14 opacity-90" />
+          <div>
+            <p class="text-2xl font-bold tracking-tight">{{ overlayTitle }}</p>
+            <p class="mt-1 text-sm opacity-60">{{ overlaySubtitle }}</p>
+          </div>
+          <!-- File-type badge -->
+          <div
+            v-if="dragFileType !== 'unknown'"
+            class="flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
+            :class="overlayBadge"
+          >
+            <component :is="overlayIcon" class="size-3" />
+            {{ dragFileType === 'markdown' ? '.md / .markdown' : '.css' }}
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- ── Drop toast ────────────────────────────────────────────────────────── -->
+    <Transition name="toast-slide">
+      <div
+        v-if="toast"
+        class="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow-xl"
+        :class="
+          toast.type === 'md'
+            ? 'border-indigo-500/40 bg-indigo-950 text-indigo-200'
+            : 'border-violet-500/40 bg-violet-950 text-violet-200'
+        "
+      >
+        <div class="flex items-center gap-2">
+          <CheckCircle2 class="size-4 shrink-0" />
+          {{ toast.message }}
+        </div>
+      </div>
+    </Transition>
     <!-- ── Header ──────────────────────────────────────────────────────────── -->
     <header
       class="flex shrink-0 items-center justify-between border-b border-gray-800 bg-gray-900 px-4 py-2.5"
@@ -125,6 +178,33 @@
   </div>
 </template>
 
+<style scoped>
+/* Drop overlay fade */
+.drop-fade-enter-active,
+.drop-fade-leave-active {
+  transition:
+    opacity 0.15s ease,
+    backdrop-filter 0.15s ease;
+}
+.drop-fade-enter-from,
+.drop-fade-leave-to {
+  opacity: 0;
+}
+
+/* Toast slide-up */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+.toast-slide-enter-from,
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 0.75rem);
+}
+</style>
+
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
 import {
@@ -133,6 +213,9 @@ import {
   Download,
   Copy,
   Check,
+  UploadCloud,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-vue-next'
 import MarkdownEditor from './components/MarkdownEditor.vue'
 import CSSEditor from './components/CSSEditor.vue'
@@ -204,6 +287,126 @@ async function copyHtml() {
   } catch {
     // Clipboard API not available — silently ignore
   }
+}
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+
+type DragFileType = 'markdown' | 'css' | 'unknown' | null
+
+const dragDepth = ref(0)
+const dragFileType = ref<DragFileType>(null)
+const isDragging = computed(() => dragDepth.value > 0)
+
+/** Sniff the file extension during dragenter via webkitGetAsEntry (pre-drop) */
+function detectDragType(e: DragEvent): DragFileType {
+  const item = e.dataTransfer?.items[0]
+  if (!item || item.kind !== 'file') return null
+  const entry = item.webkitGetAsEntry?.()
+  if (!entry?.isFile) return null
+  const ext = entry.name.split('.').pop()?.toLowerCase()
+  if (ext === 'md' || ext === 'markdown') return 'markdown'
+  if (ext === 'css') return 'css'
+  return 'unknown'
+}
+
+function onDragEnter(e: DragEvent) {
+  dragDepth.value++
+  if (dragDepth.value === 1) {
+    dragFileType.value = detectDragType(e)
+  }
+}
+
+function onDragOver(e: DragEvent) {
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect =
+      dragFileType.value && dragFileType.value !== 'unknown' ? 'copy' : 'none'
+  }
+}
+
+function onDragLeave() {
+  dragDepth.value = Math.max(0, dragDepth.value - 1)
+  if (dragDepth.value === 0) dragFileType.value = null
+}
+
+async function onDrop(e: DragEvent) {
+  dragDepth.value = 0
+  dragFileType.value = null
+
+  const file = e.dataTransfer?.files[0]
+  if (!file) return
+
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  const text = await file.text()
+
+  if (ext === 'md' || ext === 'markdown') {
+    store.markdownContent = text
+    switchTab('markdown')
+    showToast(`Loaded "${file.name}" into Markdown editor`, 'md')
+  } else if (ext === 'css') {
+    store.cssContent = text
+    switchTab('css')
+    showToast(`Loaded "${file.name}" into CSS editor`, 'css')
+  }
+  // Unknown extensions are silently ignored (overlay showed warning already)
+}
+
+// Overlay appearance driven by dragFileType
+const overlayBg = computed(() => {
+  if (dragFileType.value === 'markdown') return 'bg-indigo-950/80'
+  if (dragFileType.value === 'css') return 'bg-violet-950/80'
+  if (dragFileType.value === 'unknown') return 'bg-red-950/80'
+  return 'bg-gray-950/80'
+})
+
+const overlayCard = computed(() => {
+  if (dragFileType.value === 'markdown')
+    return 'border-indigo-400 bg-indigo-900/60 text-indigo-100'
+  if (dragFileType.value === 'css')
+    return 'border-violet-400 bg-violet-900/60 text-violet-100'
+  if (dragFileType.value === 'unknown')
+    return 'border-red-400 bg-red-900/60 text-red-100'
+  return 'border-gray-500 bg-gray-900/60 text-gray-100'
+})
+
+const overlayBadge = computed(() => {
+  if (dragFileType.value === 'markdown')
+    return 'border-indigo-400/50 bg-indigo-800/60 text-indigo-200'
+  return 'border-violet-400/50 bg-violet-800/60 text-violet-200'
+})
+
+const overlayIcon = computed(() => {
+  if (dragFileType.value === 'markdown') return FileText
+  if (dragFileType.value === 'css') return Palette
+  if (dragFileType.value === 'unknown') return AlertCircle
+  return UploadCloud
+})
+
+const overlayTitle = computed(() => {
+  if (dragFileType.value === 'markdown') return 'Drop to load Markdown'
+  if (dragFileType.value === 'css') return 'Drop to load CSS styles'
+  if (dragFileType.value === 'unknown') return 'Unsupported file type'
+  return 'Drop a file to load it'
+})
+
+const overlaySubtitle = computed(() => {
+  if (dragFileType.value === 'markdown')
+    return 'Replaces the current Markdown editor content'
+  if (dragFileType.value === 'css')
+    return 'Replaces the current CSS editor content'
+  if (dragFileType.value === 'unknown')
+    return 'Only .md, .markdown, and .css files are supported'
+  return 'Accepts .md / .markdown files and .css files'
+})
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+const toast = ref<{ message: string; type: 'md' | 'css' } | null>(null)
+let toastTimeout: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string, type: 'md' | 'css') {
+  toast.value = { message, type }
+  if (toastTimeout) clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => (toast.value = null), 3000)
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────────
