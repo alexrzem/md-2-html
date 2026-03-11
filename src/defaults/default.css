@@ -1,11 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand:      #6366f1;
+  --color-brand: #6366f1;
   --color-brand-dark: #4f46e5;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-mono: "Fira Code", "Cascadia Code", Consolas, "Courier New", monospace;
 }
 
@@ -17,7 +16,12 @@
   }
 
   /* Headings */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-bold text-slate-900;
     margin-top: 2rem;
     margin-bottom: 0.75rem;
@@ -25,16 +29,20 @@
   }
 
   h1 {
-    @apply mt-0 border-b-4 pb-2 text-4xl;
-    border-color: var(--color-brand);
+    @apply mt-0 border-b-2 pb-2 text-4xl border-gray-200;
   }
 
   h2 {
-    @apply border-b pb-1 text-2xl border-slate-200;
+    @apply border-b pb-1 text-2xl border-gray-200;
   }
 
-  h3 { @apply text-xl; }
-  h4 { @apply text-lg; }
+  h3 {
+    @apply text-xl;
+  }
+
+  h4 {
+    @apply text-lg;
+  }
 
   /* Links */
   a {
@@ -48,17 +56,18 @@
   }
 
   /* Paragraphs */
-  p { @apply mb-5; }
+  p {
+    @apply mb-5;
+  }
 
   /* Inline code */
   code {
-    @apply rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-sm text-violet-700;
-    font-family: var(--font-mono);
+    @apply font-mono rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-sm text-violet-700;
   }
 
   /* Code blocks */
   pre {
-    @apply my-6 overflow-x-auto rounded-xl bg-slate-900 p-6 shadow-md;
+    @apply my-6 overflow-x-auto rounded-xl bg-slate-900 py-2 px-4 shadow-xl;
   }
 
   pre code {
@@ -72,40 +81,71 @@
     border-color: var(--color-brand);
   }
 
-  blockquote p:last-child { @apply mb-0; }
+  blockquote p:last-child {
+    @apply mb-0;
+  }
 
   /* Tables */
   table {
-    @apply my-6 w-full overflow-hidden rounded-lg text-sm shadow-sm;
-    border-collapse: collapse;
+    @apply my-6 w-full overflow-hidden rounded-lg text-sm shadow-xl;
+    @apply border border-blue-500 border-collapse;
   }
 
   th {
-    @apply px-4 py-3 text-left font-semibold tracking-wide text-white;
-    background: var(--color-brand);
+    @apply px-4 py-3 text-left font-semibold tracking-wide text-white bg-blue-400 border-0;
   }
 
-  td { @apply border-b border-slate-200 px-4 py-3 text-slate-600; }
+  tbody {
+    @apply border-l-2 border-r-2 rounded-lg;
+  }
 
-  tr:last-child td { @apply border-b-0; }
+  td {
+    @apply border-b border-slate-200 px-4 py-3 text-slate-600;
+  }
 
-  tr:nth-child(even) td { @apply bg-slate-50; }
+  tr:last-child td {
+    @apply border-b-0;
+  }
+
+  tr:nth-child(even) td {
+    @apply bg-slate-50;
+  }
 
   /* Lists */
-  ul, ol { @apply my-3 mb-5 pl-7; }
+  ul,
+  ol {
+    @apply my-3 mb-5 pl-7;
+  }
 
-  li { @apply my-1; }
+  li {
+    @apply my-1;
+  }
 
-  li > ul, li > ol { @apply my-1; }
+  li>ul,
+  li>ol {
+    @apply my-1;
+  }
 
   /* Horizontal rule */
-  hr { @apply my-8 border-t-2 border-slate-200; }
+  hr {
+    @apply my-8 border-t-2 border-slate-200;
+  }
 
   /* Images */
-  img { @apply my-4 max-w-full rounded-lg shadow-md; }
+  img {
+    @apply my-4 max-w-full rounded-lg shadow-md;
+  }
 
   /* Inline emphasis */
-  strong { @apply font-bold text-slate-900; }
-  em     { @apply text-slate-500; }
-  del    { @apply text-slate-400; }
+  strong {
+    @apply font-bold text-slate-900;
+  }
+
+  em {
+    @apply text-slate-500;
+  }
+
+  del {
+    @apply text-slate-400;
+  }
 }
