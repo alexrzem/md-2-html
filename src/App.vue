@@ -1,10 +1,10 @@
 <template>
   <div
     class="flex h-screen flex-col overflow-hidden bg-gray-950 text-gray-100"
-    @dragenter.prevent="onDragEnter"
-    @dragover.prevent="onDragOver"
-    @dragleave.prevent="onDragLeave"
-    @drop.prevent="onDrop"
+    @dragenter.capture="onDragEnter"
+    @dragover.capture.prevent="onDragOver"
+    @dragleave.capture="onDragLeave"
+    @drop.capture.prevent="onDrop"
   >
     <!-- ── Drop overlay ──────────────────────────────────────────────────────── -->
     <Transition name="drop-fade">
@@ -329,6 +329,7 @@ function onDragLeave() {
 }
 
 async function onDrop(e: DragEvent) {
+  e.stopPropagation()
   dragDepth.value = 0
   dragFileType.value = null
 
