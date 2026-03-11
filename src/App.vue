@@ -1,10 +1,6 @@
 <template>
   <div
     class="flex h-screen flex-col overflow-hidden bg-gray-950 text-gray-100"
-    @dragenter.capture="onDragEnter"
-    @dragover.capture.prevent="onDragOver"
-    @dragleave.capture="onDragLeave"
-    @drop.capture.prevent="onDrop"
   >
     <!-- ── Drop overlay ──────────────────────────────────────────────────────── -->
     <Transition name="drop-fade">
@@ -206,7 +202,7 @@
 </style>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import {
   FileText,
   Palette,
@@ -317,6 +313,7 @@ function onDragEnter(e: DragEvent) {
 }
 
 function onDragOver(e: DragEvent) {
+  e.preventDefault()
   if (e.dataTransfer) {
     e.dataTransfer.dropEffect =
       dragFileType.value && dragFileType.value !== 'unknown' ? 'copy' : 'none'
@@ -329,6 +326,7 @@ function onDragLeave() {
 }
 
 async function onDrop(e: DragEvent) {
+  e.preventDefault()
   e.stopPropagation()
   dragDepth.value = 0
   dragFileType.value = null
@@ -350,6 +348,23 @@ async function onDrop(e: DragEvent) {
   }
   // Unknown extensions are silently ignored (overlay showed warning already)
 }
+
+// Attach drag listeners on window in capture phase so they fire before
+// Monaco's internal handlers, guaranteeing preventDefault() is called
+// on dragover (without which browsers refuse to fire the drop event).
+onMounted(() => {
+  window.addEventListener('dragenter', onDragEnter, true)
+  window.addEventListener('dragover', onDragOver, true)
+  window.addEventListener('dragleave', onDragLeave, true)
+  window.addEventListener('drop', onDrop, true)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('dragenter', onDragEnter, true)
+  window.removeEventListener('dragover', onDragOver, true)
+  window.removeEventListener('dragleave', onDragLeave, true)
+  window.removeEventListener('drop', onDrop, true)
+})
 
 // Overlay appearance driven by dragFileType
 const overlayBg = computed(() => {
