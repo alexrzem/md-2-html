@@ -289,9 +289,8 @@ async function copyHtml() {
 
 type DragFileType = 'markdown' | 'css' | 'unknown' | null
 
-const dragDepth = ref(0)
+const isDragging = ref(false)
 const dragFileType = ref<DragFileType>(null)
-const isDragging = computed(() => dragDepth.value > 0)
 
 /** Sniff the file extension during dragenter via webkitGetAsEntry (pre-drop) */
 function detectDragType(e: DragEvent): DragFileType {
@@ -306,29 +305,36 @@ function detectDragType(e: DragEvent): DragFileType {
 }
 
 function onDragEnter(e: DragEvent) {
-  dragDepth.value++
-  if (dragDepth.value === 1) {
+  if (!e.dataTransfer?.types.includes('Files')) return
+  if (!isDragging.value) {
+    // First entry into the document — detect file type once
+    isDragging.value = true
     dragFileType.value = detectDragType(e)
   }
 }
 
+// dragover: capture phase so we run before Monaco's internal handlers.
+// Always preventDefault() so the browser fires the drop event.
+// Always 'copy' — validate file type after the drop, not before.
 function onDragOver(e: DragEvent) {
   e.preventDefault()
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect =
-      dragFileType.value && dragFileType.value !== 'unknown' ? 'copy' : 'none'
-  }
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
 }
 
-function onDragLeave() {
-  dragDepth.value = Math.max(0, dragDepth.value - 1)
-  if (dragDepth.value === 0) dragFileType.value = null
+// dragleave: only hide the overlay when the drag truly leaves the document.
+// When moving between child elements, relatedTarget is another element inside
+// the document — ignore those. Only act when relatedTarget is null/outside.
+function onDragLeave(e: DragEvent) {
+  const rt = e.relatedTarget as Node | null
+  if (rt && document.documentElement.contains(rt)) return
+  isDragging.value = false
+  dragFileType.value = null
 }
 
 async function onDrop(e: DragEvent) {
   e.preventDefault()
   e.stopPropagation()
-  dragDepth.value = 0
+  isDragging.value = false
   dragFileType.value = null
 
   const file = e.dataTransfer?.files[0]
@@ -349,20 +355,21 @@ async function onDrop(e: DragEvent) {
   // Unknown extensions are silently ignored (overlay showed warning already)
 }
 
-// Attach drag listeners on window in capture phase so they fire before
-// Monaco's internal handlers, guaranteeing preventDefault() is called
-// on dragover (without which browsers refuse to fire the drop event).
+// dragenter/dragleave: bubble phase on window — fires once per real
+// document boundary crossing (relatedTarget check handles the rest).
+// dragover/drop: capture phase on window — fires before Monaco's handlers,
+// ensuring preventDefault() is always called so the browser fires drop.
 onMounted(() => {
-  window.addEventListener('dragenter', onDragEnter, true)
+  window.addEventListener('dragenter', onDragEnter, false)
   window.addEventListener('dragover', onDragOver, true)
-  window.addEventListener('dragleave', onDragLeave, true)
+  window.addEventListener('dragleave', onDragLeave, false)
   window.addEventListener('drop', onDrop, true)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('dragenter', onDragEnter, true)
+  window.removeEventListener('dragenter', onDragEnter, false)
   window.removeEventListener('dragover', onDragOver, true)
-  window.removeEventListener('dragleave', onDragLeave, true)
+  window.removeEventListener('dragleave', onDragLeave, false)
   window.removeEventListener('drop', onDrop, true)
 })
 
